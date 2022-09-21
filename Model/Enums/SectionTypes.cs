@@ -8,5 +8,7 @@ public enum SectionTypes
     TopRightCorner,
     BottomRightCorner,
     StartGrid,
+    Vertical,
+    Null,
     Finish
 }

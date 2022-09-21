@@ -62,7 +62,7 @@ public static class DataController
         int nmbrOfTracks = 5;
         for (int i = 0; i < nmbrOfTracks; i++)
         {
-            Track track = new Track($"Track {i}", GetSecions(2));
+            Track track = new Track($"Track {i}", simpleTrack());
 
             Competition.Tracks.Enqueue(track);
         }
@@ -115,6 +115,54 @@ public static class DataController
         return sectionsTypes;
     }
     
+    private static SectionTypes[] simpleTrack()
+    {
+        SectionTypes[] result = new SectionTypes[15];
+        int index = 0;
+        for (int y = 0; y < 3; y++)
+        {
+            switch (y)
+            {
+                case 0:
+                    result[index] = SectionTypes.TopLeftCorner;
+                    index++;
+                    result[index] = SectionTypes.Straight;
+                    index++;
+                    result[index] = SectionTypes.Finish;
+                    index++;
+                    result[index] = SectionTypes.Straight;
+                    index++;
+                    result[index] = SectionTypes.TopRightCorner;
+                    index++;
+                    break;
+                case 1:
+                    result[index] = SectionTypes.Vertical;
+                    index++;
+                    result[index] = SectionTypes.Null;
+                    index++;
+                    result[index] = SectionTypes.Null;
+                    index++;
+                    result[index] = SectionTypes.Null;
+                    index++;
+                    result[index] = SectionTypes.Vertical;
+                    index++;
+                    break;
+                default:
+                    result[index] = SectionTypes.BottomLeftCorner;
+                    index++;
+                    result[index] = SectionTypes.Straight;
+                    index++;
+                    result[index] = SectionTypes.Straight;
+                    index++;
+                    result[index] = SectionTypes.Straight;
+                    index++;
+                    result[index] = SectionTypes.BottomRightCorner;
+                    index++;
+                    break;
+            }
+        }
+        return result;
+    }
     /*
      *  Description: Creates a new Section object
      *  Return Type: Section

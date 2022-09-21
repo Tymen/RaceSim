@@ -7,12 +7,14 @@ namespace RaceSim;
 public static class Visualizer
 {
     #region graphics
-    private static string[] _finishHorizontal = { "-----", "   * ", "   * ", "   * ", "-----" };
+    private static string[] _finishHorizontal = { "-----", "  *  ", "  *  ", "  *  ", "-----" };
+    private static string[] _vertical = { "|   |", "|   |", "|   |", "|   |", "|   |" };
     private static string[] _horizontal = { "-----", "     ", "     ", "     ", "-----" };
-    private static string[] _topLeftCorner = { "/----", "|    ", "|    ", "|    ", "|    " };
-    private static string[] _bottomLeftCorner = { "|    ", "|    ", "|    ", "|    " ,@"\----" };
-    private static string[] _topRightCorner = { @"----\", "    |", "    |", "    |", "    |" };
-    private static string[] _bottomRightCorner = { "    |", "    |", "    |", "    |", "----/" };
+    private static string[] _topLeftCorner = { "/----", "|    ", "|    ", "|    ", "|   /" };
+    private static string[] _bottomLeftCorner = { @"|   \", "|    ", "|    ", "|    " ,@"\----" };
+    private static string[] _topRightCorner = { @"----\", "    |", "    |", "    |", @"\   |" };
+    private static string[] _bottomRightCorner = { "/   |", "    |", "    |", "    |", "----/" };
+    private static string[] _blank = { "     ", "     ", "     ", "     ", "     " };
     #endregion
 
     private static int _trackSize;
@@ -28,7 +30,8 @@ public static class Visualizer
         _trackSize = trackSize * 5;
         Console.SetWindowSize(_trackSize, _trackSize);
     }
-    
+
+
     public static void DrawTrack(Track track)
     {
         LinkedList<Section> sections = track.Sections;
@@ -42,8 +45,23 @@ public static class Visualizer
                 case SectionTypes.Straight:
                     DrawSection(_horizontal);
                     break;
+                case SectionTypes.Vertical:
+                    DrawSection(_vertical);
+                    break;
                 case SectionTypes.BottomLeftCorner:
                     DrawSection(_bottomLeftCorner);
+                    break;
+                case SectionTypes.TopLeftCorner:
+                    DrawSection(_topLeftCorner);
+                    break;
+                case SectionTypes.BottomRightCorner:
+                    DrawSection(_bottomRightCorner);
+                    break;
+                case SectionTypes.TopRightCorner:
+                    DrawSection(_topRightCorner);
+                    break;
+                default:
+                    DrawSection(_blank);
                     break;
             }
         }
