@@ -6,7 +6,7 @@ StartUp();
 
 for (; ; )
 {
-    Thread.Sleep(25);
+    Thread.Sleep(5);
 }
 
 void StartUp()
@@ -39,11 +39,23 @@ void StartUp()
 
 void StartTrackBuilder()
 {
+    Console.WriteLine("Name: ");
+    var name = (Console.ReadLine()).ToLower();
+    TrackController trackController = new TrackController(name);
     ConsoleKeyInfo keyinfo;
     do
     {
         keyinfo = Console.ReadKey();
         Console.Clear();
+        if (keyinfo.Key == ConsoleKey.S)
+        {
+            trackController.SaveTrack();
+            StartUp();
+        }
+        else
+        {
+            trackController.AddTrackSection(keyinfo);
+        }
     }
     while (keyinfo.Key != ConsoleKey.X);
 }
@@ -51,7 +63,8 @@ void StartTrackBuilder()
 void StartSim()
 {
     DataController.Initialize();
+    DataController.AddParticipant(4);
     DataController.NextRace();
-    Visualizer.Initializer(5);
-    Visualizer.DrawTrack(DataController.CurrentRace.Track);
+    VisualController.DrawTrack(DataController.CurrentRace.Track);
+    VisualController.DrawParticipants(DataController.CurrentRace.GetPosition());
 }

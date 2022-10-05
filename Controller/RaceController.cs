@@ -1,4 +1,5 @@
 using Model.Classes;
+using Model.Enums;
 using Model.Interfaces;
 
 namespace Controller;
@@ -20,8 +21,59 @@ public class RaceController
         Track = track;
         Participants = participants;
         _random = new Random(DateTime.Now.Millisecond);
+        SetParticipantsStartPosition();
     }
 
+    public void SetParticipantsStartPosition()
+    {
+        LinkedListNode<Section> lastSection;
+        Queue<Section> startSections = new Queue<Section>();
+        _position = new Dictionary<Section, SectionData>();
+        foreach (Section section in Track.Sections)
+        {
+            _position.Add(section, new SectionData());
+            if (section.SectionType == SectionTypes.Start)
+            {
+                startSections.Enqueue(section);
+            }
+        }
+        startSections = new Queue<Section>(startSections.Reverse());
+        foreach (IParticipant participant in Participants)
+        {
+            SectionData startSectionData = GetSectionData(startSections.Peek());
+            if (startSectionData.Left == null)
+            {
+                startSectionData.Left = participant;
+                GetPosition()[startSections.Peek()] = startSectionData;
+            } 
+            else if (startSectionData.Right == null)
+            {
+                startSectionData.Right = participant;
+                GetPosition()[startSections.Peek()] = startSectionData;
+            }
+            else
+            {
+                GetPosition()[startSections.Peek()] = startSectionData;
+                startSections.Dequeue();
+                GetSectionData(startSections.Peek()).Left = participant;
+            }
+        }
+    }
+
+    public bool IsSectionOccupied(Section section)
+    {
+        int count = 0;
+        foreach (var participant in Participants)
+        {
+            if (participant._position != null)
+            {
+                count = participant._position.Equals(section) ? count + 1 : count;
+            }
+        }
+
+        return count >= 2;
+    }
+    
     /*
      *  Description:
      *  Sets the equipment for every participant

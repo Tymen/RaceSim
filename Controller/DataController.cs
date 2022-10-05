@@ -1,7 +1,7 @@
-using Model;
 using Model.Classes;
 using Model.Enums;
 using Model.Interfaces;
+using Newtonsoft.Json;
 
 namespace Controller;
 
@@ -21,8 +21,7 @@ public static class DataController
         Competition.Participants = new List<IParticipant>();
         Competition.Tracks = new Queue<Track>();
         
-        AddParticipant(5);
-        AddTrack();
+        SetTracks();
     }
 
     /*
@@ -57,14 +56,21 @@ public static class DataController
      *  Creates multiple new Track objects.
      *  Adds these Track object to the Competition Tracks Queue
      */
-    public static void AddTrack()
+    public static void AddTrack(Track track)
     {
-        int nmbrOfTracks = 5;
-        for (int i = 0; i < nmbrOfTracks; i++)
-        {
-            Track track = new Track($"Track {i}", simpleTrack());
+        Competition.Tracks.Enqueue(track);
+    }
 
-            Competition.Tracks.Enqueue(track);
+    public static void SetTracks()
+    {
+        DirectoryInfo d = new DirectoryInfo(@"../../../../Controller/Tracks"); //Assuming Test is your Folder
+
+        FileInfo[] Files = d.GetFiles("*.json"); //Getting Text files
+
+        foreach(FileInfo file in Files )
+        {
+            Track track = JsonConvert.DeserializeObject<Track>(File.ReadAllText($@"../../../../Controller/Tracks/{file.Name}"));
+            AddTrack(track);
         }
     }
     
@@ -78,7 +84,7 @@ public static class DataController
         Random random = new Random();
         
         Driver participant = new Driver(GetCar());
-        participant.Name = $"Gerald {nmbr}";
+        participant.Name = $"{nmbr + 1}";
         participant.Points = 0;
         participant.TeamColors = (TeamColors)values.GetValue(random.Next(values.Length));
 

@@ -10,5 +10,6 @@ public enum SectionTypes
     StartGrid,
     Vertical,
     Null,
-    Finish
+    Finish,
+    Start
 }
