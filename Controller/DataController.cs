@@ -20,8 +20,8 @@ public static class DataController
         Competition = new Competition();
         Competition.Participants = new List<IParticipant>();
         Competition.Tracks = new Queue<Track>();
-        
         SetTracks();
+        CurrentRace = new RaceController(Competition.NextTrack(), Competition.Participants);
     }
 
     /*
@@ -31,11 +31,7 @@ public static class DataController
      */
     public static void NextRace()
     {
-        Track nextTrack = Competition.NextTrack();
-        if (!nextTrack.Equals(null))
-        {
-            CurrentRace = new RaceController(nextTrack, Competition.Participants);
-        }
+        Competition.NextTrack();
     }
     
     /*

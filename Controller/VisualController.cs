@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Controller;
+using Controller.EventArgs;
 using Model.Classes;
 using Model.Enums;
 using Model.Interfaces;
@@ -9,13 +11,13 @@ public static class VisualController
 {
     #region graphics
     private static string[] _finishHorizontal = { "-----", "  *  ", "  *  ", "  *  ", "-----" };
-    private static string[] _startHorizontal = { "-----", "  #  ", "     ", "  #  ", "-----" };
-    private static string[] _vertical = { "|   |", "|   |", "|   |", "|   |", "|   |" };
-    private static string[] _horizontal = { "-----", "     ", "     ", "     ", "-----" };
-    private static string[] _topLeftCorner = { "/----", "|    ", "|    ", "|    ", "|   /" };
-    private static string[] _bottomLeftCorner = { @"|   \", "|    ", "|    ", "|    " ,@"\----" };
-    private static string[] _topRightCorner = { @"----\", "    |", "    |", "    |", @"\   |" };
-    private static string[] _bottomRightCorner = { "/   |", "    |", "    |", "    |", "----/" };
+    private static string[] _startHorizontal = { "-----", " x#  ", "     ", " x#  ", "-----" };
+    private static string[] _vertical = { "|   |", "|   |", "|x x|", "|   |", "|   |" };
+    private static string[] _horizontal = { "-----", "  x  ", "     ", "  x  ", "-----" };
+    private static string[] _topLeftCorner = { "/----", "|x   ", "|    ", "|   x", "|   /" };
+    private static string[] _bottomLeftCorner = { @"|   \", "|   x", "|    ", "|x   " ,@"\----" };
+    private static string[] _topRightCorner = { @"----\", "   x|", "    |", "x   |", @"\   |" };
+    private static string[] _bottomRightCorner = { "/   |", "x   |", "    |", "   x|", "----/" };
     private static string[] _blank = { "     ", "     ", "     ", "     ", "     " };
     #endregion
 
@@ -25,6 +27,15 @@ public static class VisualController
     private static float _width;
     private static float _height;
 
+    public static void main(RaceController raceController)
+    {
+        raceController.DriversChanged += onDriversChanged;
+    }
+    static void onDriversChanged(object sender, DriversChangedEventArgs e)
+    {
+        Console.WriteLine("received");
+        DrawTrack(e.track);
+    }
     /*
      *  Description:
      *  Loop through every section of the track to visualize it correctly in the console
@@ -32,7 +43,6 @@ public static class VisualController
     public static void DrawTrack(Track track)
     {
         SetTrackSize(track);
-        Console.SetWindowSize(Convert.ToInt32(_width), Convert.ToInt32(_height));
         LinkedList<Section> sections = track.Sections;
         foreach (Section section in sections)
         {
@@ -69,29 +79,83 @@ public static class VisualController
         }
     }
 
-    public static void DrawParticipants(Dictionary<Section, SectionData> sectionData)
+    public static void DrawTrack(Dictionary<Section, SectionData> sectionDataDictionary)
     {
-        foreach(var item in sectionData)
+        foreach(var item in sectionDataDictionary)
         {
-            DrawSection(GetVisualParticipantSection(item.Key, item.Value), item.Key);
+            Section section = item.Key;
+            SectionData sectionData = item.Value;
+
+            switch(section.SectionType)
+            {
+                case SectionTypes.Finish:
+                    DrawSection(GetVisualSection(sectionData, _finishHorizontal), section);
+                    break;
+                case SectionTypes.Straight:
+                    DrawSection(GetVisualSection(sectionData, _horizontal), section);
+                    break;
+                case SectionTypes.Vertical:
+                    DrawSection(GetVisualSection(sectionData, _vertical), section);
+                    break;
+                case SectionTypes.BottomLeftCorner:
+                    DrawSection(GetVisualSection(sectionData, _bottomLeftCorner), section);
+                    break;
+                case SectionTypes.TopLeftCorner:
+                    DrawSection(GetVisualSection(sectionData, _topLeftCorner), section);
+                    break;
+                case SectionTypes.BottomRightCorner:
+                    DrawSection(GetVisualSection(sectionData, _bottomRightCorner), section);
+                    break;
+                case SectionTypes.TopRightCorner:
+                    DrawSection(GetVisualSection(sectionData, _topRightCorner), section);
+                    break;
+                case SectionTypes.Start:
+                    DrawSection(GetVisualSection(sectionData, _startHorizontal), section);
+                    break;
+                default:
+                    DrawSection(GetVisualSection(sectionData, _blank), section);
+                    break;
+            }
         }
     }
 
-    private static string[] GetVisualParticipantSection(Section section, SectionData sectionData)
+    private static string[] GetVisualSection(SectionData sectionData, string[] visualSection)
     {
-        switch (section.SectionType)
+        bool left = false;
+        string[] visualData = new string[visualSection.Length];
+        for (int i = 0; i < visualSection.Length; i++)
         {
-            case SectionTypes.Vertical:
-                return new[] { "|   |", "|   |", $"|{(sectionData.Left != null ? sectionData.Left.Name[0].ToString() : ' '.ToString())} {(sectionData.Right != null ? sectionData.Right.Name[0].ToString() : ' '.ToString())}|", "|   |", "|   |" };
-            case SectionTypes.Straight:
-                return new[]{ "-----", $"   {(sectionData.Left != null ? sectionData.Left.Name[0].ToString() : ' '.ToString())}  ", "     ", $"   {(sectionData.Right != null ? sectionData.Right.Name[0].ToString() : ' '.ToString())}  ", "-----" };
-            case SectionTypes.Start:
-                return new[]{ "-----", $"  {(sectionData.Left != null ? sectionData.Left.Name[0].ToString() : ' '.ToString())}#  ", "     ", $"  {(sectionData.Right != null ? sectionData.Right.Name[0].ToString() : ' '.ToString())}#  ", "-----" };
-            default:
-                string[] defaultList = new string[5];
-                return defaultList;
+            string getSection = visualSection[i];
+            if (getSection.Contains("x"))
+            {
+                int XCount = getSection.Count(x => x == 'x');
+                if (sectionData.Left != null && XCount > 1)
+                {
+                    getSection = getSection.Replace("x", sectionData.Left.Name[0].ToString());
+                    XCount = getSection.Count(x => x == 'x');
+                }
+
+                if (sectionData.Left != null && !left && XCount == 1)
+                {
+                    getSection = getSection.Replace("x", sectionData.Left.Name[0].ToString());
+                    left = true;
+                }
+
+                if (sectionData.Right != null && left && XCount == 1)
+                {
+                    getSection = getSection.Replace("x", sectionData.Right.Name[0].ToString());
+                }
+            }
+            if (sectionData.Left == null && sectionData.Right == null)
+            {
+                getSection = getSection.Replace("x", " ");
+            }    
+            visualData[i] = getSection;
         }
+        
+        return visualData;
     }
+
     /*
      *  Description:
      *  set de max width and heigth of the track;

@@ -64,7 +64,6 @@ void StartSim()
 {
     DataController.Initialize();
     DataController.AddParticipant(4);
-    DataController.NextRace();
-    VisualController.DrawTrack(DataController.CurrentRace.Track);
-    VisualController.DrawParticipants(DataController.CurrentRace.GetPosition());
+    VisualController.main(DataController.CurrentRace);
+    DataController.CurrentRace.Start();
 }
