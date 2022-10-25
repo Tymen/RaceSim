@@ -4,8 +4,8 @@ namespace Model.Classes;
 
 public class SectionData
 {
-    public IParticipant Left;
+    public Driver Left;
     public int DistanceLeft;
-    public IParticipant Right;
+    public Driver Right;
     public int DistanceRight;
 }

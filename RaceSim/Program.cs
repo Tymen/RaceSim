@@ -62,8 +62,7 @@ void StartTrackBuilder()
 
 void StartSim()
 {
-    DataController.Initialize();
-    DataController.AddParticipant(4);
+    DataController.Initialize(4);
     VisualController.main(DataController.CurrentRace);
     DataController.CurrentRace.Start();
 }

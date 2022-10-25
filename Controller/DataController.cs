@@ -15,12 +15,13 @@ public static class DataController
      *  Because there is no constructor in a static class.
      *  We need to have a way to initialize the new Competition
      */
-    public static void Initialize()
+    public static void Initialize(int driverAmount)
     {
         Competition = new Competition();
         Competition.Participants = new List<IParticipant>();
         Competition.Tracks = new Queue<Track>();
         SetTracks();
+        AddParticipant(driverAmount);
         CurrentRace = new RaceController(Competition.NextTrack(), Competition.Participants);
     }
 

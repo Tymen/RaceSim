@@ -33,8 +33,7 @@ public static class VisualController
     }
     static void onDriversChanged(object sender, DriversChangedEventArgs e)
     {
-        Console.WriteLine("received");
-        DrawTrack(e.track);
+        DrawTrack(e.positions);
     }
     /*
      *  Description:
@@ -138,6 +137,7 @@ public static class VisualController
                 if (sectionData.Left != null && !left && XCount == 1)
                 {
                     getSection = getSection.Replace("x", sectionData.Left.Name[0].ToString());
+                    XCount = getSection.Count(x => x == 'x');
                     left = true;
                 }
 

@@ -17,6 +17,8 @@ public class RaceController
     private Timer _timer;
     private Random _random;
     private Dictionary<Section, SectionData> _position;
+
+    private int sectionLength = 100;
     /*
      *  Description: Constructor for initializing properties
      */
@@ -29,23 +31,135 @@ public class RaceController
         _timer.Elapsed += OnTimedEvent;
         SetParticipantsStartPosition();
     }
-    private static void OnTimedEvent(object? source, ElapsedEventArgs e)
+    private void OnTimedEvent(object? source, ElapsedEventArgs e)
     {
-        // Console.WriteLine("The Elapsed event was raised at {0:HH:mm:ss.fff}",
-        //     e.SignalTime);
+        OnDriversChanged(new DriversChangedEventArgs() { track = Track, positions = _position });
+        UpdateDriversPosition();
     }
     protected virtual void OnDriversChanged(DriversChangedEventArgs e)
     {
-        Console.WriteLine("invoked");
         DriversChanged.Invoke(this, e);
     }
     public void Start()
     {
         _timer.Enabled = true;
-        OnDriversChanged(new DriversChangedEventArgs(){ track = Track});
+    }
+
+    private void UpdateDriversPosition()
+    {
+        Queue<SectionData> nextSection = new Queue<SectionData>();
+        for(LinkedListNode<Section> node = Track.Sections.First; node != null; node=node.Next){
+            SectionData sectionData = _position[node.Value];
+            SectionData newNextSection = null;
+            Driver leftDriver = sectionData.Left;
+            int leftDistance = sectionData.DistanceLeft;
+            
+            Driver rightDriver = sectionData.Right;
+            int rightDistance = sectionData.DistanceRight;
+            
+            if (nextSection.Count > 0)
+            {
+                SectionData newSectionData = nextSection.Peek();
+                if (leftDriver != null)
+                {
+                    nextSection.Dequeue();
+                }
+            
+                if (rightDriver != null)
+                {
+                    nextSection.Dequeue();
+                }
+                if (leftDriver == null && newSectionData.Left != null)
+                {
+                    leftDriver = newSectionData.Left;
+                    leftDistance = newSectionData.DistanceLeft;
+                    newSectionData.Left = null;
+                    newSectionData.DistanceLeft = 0;
+                }
+                if (rightDriver == null && newSectionData.Right != null)
+                {
+                    rightDriver = newSectionData.Right;
+                    rightDistance = newSectionData.DistanceRight;
+                    newSectionData.Right = null;
+                    newSectionData.DistanceRight = 0;
+                }
+            
+                if (newSectionData.Left == null && newSectionData.Right == null)
+                {
+                    nextSection.Dequeue();      
+                }
+            }
+            // node = node.Next;
+            // if (node == null)
+            // {
+            //     sectionData = _position[Track.Sections.First.Value];
+            //     node = node.Previous;
+            // }
+            if (leftDriver != null)
+            {
+                leftDistance = CalculateDistance(leftDriver, leftDistance);
+                node = node.Next;
+                if (leftDistance > sectionLength && _position[node.Value].Left == null)
+                {
+                    if (newNextSection == null)
+                    {
+                        newNextSection = new SectionData();
+                    }
+                    newNextSection.Left = leftDriver;
+                    newNextSection.DistanceLeft = leftDistance - sectionLength;
+            
+                    leftDriver = null;
+                    leftDistance = 0;
+                }
+                else
+                {
+                    leftDistance = 100;
+                }
+
+                node = node.Previous;
+                sectionData.DistanceLeft = leftDistance;
+                sectionData.Left = leftDriver;
+            }
+            if (rightDriver != null)
+            {
+                rightDistance = CalculateDistance(rightDriver, rightDistance);
+                node = node.Next;
+                if (rightDistance > sectionLength && _position[node.Value].Right == null)
+                {
+                    if (newNextSection == null)
+                    {
+                        newNextSection = new SectionData();
+                    }
+                    newNextSection.Right = rightDriver;
+                    newNextSection.DistanceRight = rightDistance - sectionLength;
+            
+                    rightDriver = null;
+                    rightDistance = 0;
+                }
+                else
+                {
+                    rightDistance = 100;
+                }
+
+                node = node.Previous;
+                
+                sectionData.DistanceRight = rightDistance;
+                sectionData.Right = rightDriver;
+            }
+            
+            if (newNextSection != null)
+            {
+                nextSection.Enqueue(newNextSection);
+            }
+        } 
+    }
+    private int CalculateDistance(Driver driver, int distance)
+    {
+        return distance + (driver.Equipment.Performance * driver.Equipment.Speed);
     }
     public void SetParticipantsStartPosition()
     {
+        SetParticipantsEquipment();
         LinkedListNode<Section> lastSection;
         Queue<Section> startSections = new Queue<Section>();
         _position = new Dictionary<Section, SectionData>();
@@ -58,7 +172,7 @@ public class RaceController
             }
         }
         startSections = new Queue<Section>(startSections.Reverse());
-        foreach (IParticipant participant in Participants)
+        foreach (Driver participant in Participants)
         {
             SectionData startSectionData = GetSectionData(startSections.Peek());
             if (startSectionData.Left == null)
@@ -100,9 +214,9 @@ public class RaceController
     public IEquipment RandomizedEquipment()
     {
         IEquipment equipment = new Car();
-        equipment.Performance = _random.Next(0, 100);
+        equipment.Performance = _random.Next(0, 10);
         equipment.Quality = _random.Next(0, 20);
-        equipment.Speed = _random.Next(0, 200);
+        equipment.Speed = _random.Next(0, 8);
         equipment.IsBroken = false;
         
         return equipment;
