@@ -32,6 +32,7 @@ public class Model_Competition_NextTrackShould
         
         return track;
     }
+    
     /*
      *  Description:
      *  Test if the Nextrack is null / empty
@@ -92,6 +93,5 @@ public class Model_Competition_NextTrackShould
             result = _competition.NextTrack();
             Assert.AreEqual(tracks[i], result);
         }
-
     }
 }

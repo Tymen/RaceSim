@@ -4,7 +4,7 @@ namespace Model.Classes;
 
 public class Competition
 {
-    public List<IParticipant> Participants { set; get; }
+    public List<Driver> Participants { set; get; }
     public Queue<Track> Tracks { set; get; }
 
     public Track NextTrack()

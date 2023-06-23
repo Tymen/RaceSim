@@ -10,19 +10,21 @@ namespace Controller;
 public class RaceController
 {
     public Track Track;
-    public List<IParticipant> Participants;
+    public List<Driver> Participants;
     public DateTime StartTime;
     public event EventHandler<DriversChangedEventArgs> DriversChanged;
-    
+    public event EventHandler<IsFinishedEventArgs> IsFinished;
+
+    private int finishedCount = 0;
     private Timer _timer;
     private Random _random;
     private Dictionary<Section, SectionData> _position;
-
     private int sectionLength = 100;
+    
     /*
      *  Description: Constructor for initializing properties
      */
-    public RaceController(Track track, List<IParticipant> participants)
+    public RaceController(Track track, List<Driver> participants)
     {
         Track = track;
         Participants = participants;
@@ -31,40 +33,65 @@ public class RaceController
         _timer.Elapsed += OnTimedEvent;
         SetParticipantsStartPosition();
     }
+    
     private void OnTimedEvent(object? source, ElapsedEventArgs e)
     {
         OnDriversChanged(new DriversChangedEventArgs() { track = Track, positions = _position });
         UpdateDriversPosition();
     }
+    
     protected virtual void OnDriversChanged(DriversChangedEventArgs e)
     {
         DriversChanged.Invoke(this, e);
     }
+    
+    protected virtual void OnFinished(IsFinishedEventArgs e)
+    {
+        IsFinished.Invoke(this, e);
+    }
+    
     public void Start()
     {
         _timer.Enabled = true;
     }
 
+    private void isTrackEmpty()
+    {
+        if (finishedCount >= Participants.Count)
+        {
+            OnFinished(new IsFinishedEventArgs() {ParticipantsList = Participants});
+            //clearEventHandlers();
+        }
+    }
+
+    private void clearEventHandlers()
+    {
+        DriversChanged = null;
+        IsFinished = null;
+    }
+    
+    // The Code is not working properly yet
     private void UpdateDriversPosition()
     {
         Queue<SectionData> nextSection = new Queue<SectionData>();
         for(LinkedListNode<Section> node = Track.Sections.First; node != null; node=node.Next){
             SectionData sectionData = _position[node.Value];
             SectionData newNextSection = null;
+            
             Driver leftDriver = sectionData.Left;
-            int leftDistance = sectionData.DistanceLeft;
+            int leftDistance = leftDriver == null ? sectionData.DistanceLeft : CalculateDistance(leftDriver, sectionData.DistanceLeft);
             
             Driver rightDriver = sectionData.Right;
-            int rightDistance = sectionData.DistanceRight;
-            
+            int rightDistance = rightDriver == null ? sectionData.DistanceRight : CalculateDistance(rightDriver, sectionData.DistanceRight);
             if (nextSection.Count > 0)
             {
                 SectionData newSectionData = nextSection.Peek();
+                bool isFinish = node.Value.SectionType == SectionTypes.Finish;
                 if (leftDriver != null)
                 {
                     nextSection.Dequeue();
                 }
-            
+                
                 if (rightDriver != null)
                 {
                     nextSection.Dequeue();
@@ -73,15 +100,78 @@ public class RaceController
                 {
                     leftDriver = newSectionData.Left;
                     leftDistance = newSectionData.DistanceLeft;
+                    if (isFinish)
+                    {
+                        leftDriver.lap += 1;
+                        if (leftDriver.lap > Track.laps)
+                        {
+                            leftDriver = null;
+                            leftDistance = 0;
+                            finishedCount += 1;
+                            isTrackEmpty();
+                        }
+                    }
                     newSectionData.Left = null;
                     newSectionData.DistanceLeft = 0;
+                } else if (newSectionData.Left != null)
+                {
+                    newNextSection.DistanceLeft = CalculateDistance(newNextSection.Left, newNextSection.DistanceLeft);
+                    if (newNextSection.DistanceLeft > sectionLength)
+                    {
+                        node = node.Next;
+                        SectionData getNextSection = _position[node.Value];
+                        if (getNextSection.Left == null)
+                        {
+                            getNextSection.Left = newNextSection.Left;
+                            getNextSection.DistanceLeft = newNextSection.DistanceLeft;
+                        } else if (getNextSection.Right == null)
+                        {
+                            getNextSection.Right = newNextSection.Left;
+                            getNextSection.DistanceRight = newNextSection.DistanceLeft;
+                        }
+                        newSectionData.Right = null;
+                        newSectionData.DistanceRight = 0;
+                        node = node.Previous;
+                    }
                 }
+                
                 if (rightDriver == null && newSectionData.Right != null)
                 {
                     rightDriver = newSectionData.Right;
                     rightDistance = newSectionData.DistanceRight;
+                    if (isFinish)
+                    {
+                        rightDriver.lap += 1;
+                        if (rightDriver.lap > Track.laps)
+                        {
+                            rightDriver = null;
+                            rightDistance = 0;
+                            finishedCount += 1;
+                            isTrackEmpty();
+                        }
+                    }
                     newSectionData.Right = null;
                     newSectionData.DistanceRight = 0;
+                } else if (newSectionData.Right != null)
+                {
+                    newNextSection.DistanceRight = CalculateDistance(newNextSection.Right, newNextSection.DistanceRight);
+                    if (newNextSection.DistanceRight > sectionLength)
+                    {
+                        node = node.Next;
+                        SectionData getNextSection = _position[node.Value];
+                        if (getNextSection.Left == null)
+                        {
+                            getNextSection.Left = newNextSection.Right;
+                            getNextSection.DistanceLeft = newNextSection.DistanceRight;
+                        } else if (getNextSection.Right == null)
+                        {
+                            getNextSection.Right = newNextSection.Right;
+                            getNextSection.DistanceRight = newNextSection.DistanceRight;
+                        }
+                        newSectionData.Right = null;
+                        newSectionData.DistanceRight = 0;
+                        node = node.Previous;
+                    }
                 }
             
                 if (newSectionData.Left == null && newSectionData.Right == null)
@@ -89,17 +179,19 @@ public class RaceController
                     nextSection.Dequeue();      
                 }
             }
-            // node = node.Next;
-            // if (node == null)
-            // {
-            //     sectionData = _position[Track.Sections.First.Value];
-            //     node = node.Previous;
-            // }
+            
             if (leftDriver != null)
             {
-                leftDistance = CalculateDistance(leftDriver, leftDistance);
                 node = node.Next;
-                if (leftDistance > sectionLength && _position[node.Value].Left == null)
+                if (node.Next == null)
+                {
+                    SectionData connectSection = _position[Track.Sections.First.Value];
+                    connectSection.Left = leftDriver;
+                    connectSection.DistanceLeft = leftDistance - sectionLength;
+                    
+                    leftDriver = null;
+                    leftDistance = 0;
+                } else if (leftDistance > sectionLength)
                 {
                     if (newNextSection == null)
                     {
@@ -111,10 +203,6 @@ public class RaceController
                     leftDriver = null;
                     leftDistance = 0;
                 }
-                else
-                {
-                    leftDistance = 100;
-                }
 
                 node = node.Previous;
                 sectionData.DistanceLeft = leftDistance;
@@ -122,9 +210,15 @@ public class RaceController
             }
             if (rightDriver != null)
             {
-                rightDistance = CalculateDistance(rightDriver, rightDistance);
                 node = node.Next;
-                if (rightDistance > sectionLength && _position[node.Value].Right == null)
+                if (node.Next == null)
+                {
+                    SectionData connectSection = _position[Track.Sections.First.Value];
+                    connectSection.Right = rightDriver;
+                    connectSection.DistanceRight = rightDistance - sectionLength;
+                    rightDriver = null;
+                    rightDistance = 0;
+                } else if (rightDistance > sectionLength)
                 {
                     if (newNextSection == null)
                     {
@@ -135,10 +229,6 @@ public class RaceController
             
                     rightDriver = null;
                     rightDistance = 0;
-                }
-                else
-                {
-                    rightDistance = 100;
                 }
 
                 node = node.Previous;
@@ -153,10 +243,12 @@ public class RaceController
             }
         } 
     }
+    
     private int CalculateDistance(Driver driver, int distance)
     {
         return distance + (driver.Equipment.Performance * driver.Equipment.Speed);
     }
+    
     public void SetParticipantsStartPosition()
     {
         SetParticipantsEquipment();
@@ -211,12 +303,13 @@ public class RaceController
      *  Generates random car equipment for participants
      *  Return Type: IEquipment
      */
+    
     public IEquipment RandomizedEquipment()
     {
         IEquipment equipment = new Car();
-        equipment.Performance = _random.Next(0, 10);
-        equipment.Quality = _random.Next(0, 20);
-        equipment.Speed = _random.Next(0, 8);
+        equipment.Performance = _random.Next(1, 7);
+        equipment.Quality = _random.Next(1, 20);
+        equipment.Speed = _random.Next(1, 8);
         equipment.IsBroken = false;
         
         return equipment;

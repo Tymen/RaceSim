@@ -12,7 +12,7 @@ public static class VisualController
     #region graphics
     private static string[] _finishHorizontal = { "-----", "  *  ", "  *  ", "  *  ", "-----" };
     private static string[] _startHorizontal = { "-----", " x#  ", "     ", " x#  ", "-----" };
-    private static string[] _vertical = { "|   |", "|   |", "|x x|", "|   |", "|   |" };
+    private static string[] _vertical = { "|   |", "|   |", "|x i|", "|   |", "|   |" };
     private static string[] _horizontal = { "-----", "  x  ", "     ", "  x  ", "-----" };
     private static string[] _topLeftCorner = { "/----", "|x   ", "|    ", "|   x", "|   /" };
     private static string[] _bottomLeftCorner = { @"|   \", "|   x", "|    ", "|x   " ,@"\----" };
@@ -31,10 +31,12 @@ public static class VisualController
     {
         raceController.DriversChanged += onDriversChanged;
     }
+    
     static void onDriversChanged(object sender, DriversChangedEventArgs e)
     {
         DrawTrack(e.positions);
     }
+    
     /*
      *  Description:
      *  Loop through every section of the track to visualize it correctly in the console
@@ -125,7 +127,7 @@ public static class VisualController
         for (int i = 0; i < visualSection.Length; i++)
         {
             string getSection = visualSection[i];
-            if (getSection.Contains("x"))
+            if (getSection.Contains("x") || getSection.Contains("i"))
             {
                 int XCount = getSection.Count(x => x == 'x');
                 if (sectionData.Left != null && XCount > 1)
@@ -141,14 +143,25 @@ public static class VisualController
                     left = true;
                 }
 
-                if (sectionData.Right != null && left && XCount == 1)
+                if (sectionData.Right != null)
                 {
-                    getSection = getSection.Replace("x", sectionData.Right.Name[0].ToString());
+                    if (getSection.Contains("i"))
+                    {
+                        getSection = getSection.Replace("i", sectionData.Right.Name[0].ToString());
+                    }
+                    if (left && XCount == 1)
+                    {
+                        getSection = getSection.Replace("x", sectionData.Right.Name[0].ToString());
+                    }
                 }
             }
             if (sectionData.Left == null && sectionData.Right == null)
             {
                 getSection = getSection.Replace("x", " ");
+                if (getSection.Contains("i"))
+                {
+                    getSection = getSection.Replace("i", " ");
+                }
             }    
             visualData[i] = getSection;
         }

@@ -84,6 +84,7 @@ public class TrackController
         var jsonString = JsonConvert.SerializeObject(_track) ?? throw new ArgumentNullException("Track is empty");
         await File.WriteAllTextAsync($@"../../../../Controller/Tracks/{_track.Name}.json", jsonString);
     }
+    
     private void SetNextSectionLocation(Section lastSection, ConsoleKey key)
     {
         float x = lastSection.VectorPosition.X;

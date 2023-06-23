@@ -8,11 +8,12 @@ public class Track
     public string Name { get; set; }
     public LinkedList<Section> Sections { get; set; }
     public Section _currentSection { get; set; }
+    public int laps { get; set; }
 
     public Track()
     {
-        
     }
+    
     public Track(string name, SectionTypes[] sectionTypes)
     {
         Name = name;
@@ -20,6 +21,7 @@ public class Track
         
         Sections = sections;
     }
+    
     public Track(string name, LinkedList<Section> sectionsList)
     {
         Name = name;
@@ -28,6 +30,7 @@ public class Track
         Sections = sections;
         _currentSection = Sections.First!.Value;
     }
+    
     private LinkedList<Section> GetSections(SectionTypes[] sectionTypes)
     {
         LinkedList<Section> result = new LinkedList<Section>();
@@ -41,6 +44,7 @@ public class Track
         }
         return result;
     }
+    
     public void NextSection()
     {
         // Find the current node

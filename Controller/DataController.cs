@@ -18,7 +18,7 @@ public static class DataController
     public static void Initialize(int driverAmount)
     {
         Competition = new Competition();
-        Competition.Participants = new List<IParticipant>();
+        Competition.Participants = new List<Driver>();
         Competition.Tracks = new Queue<Track>();
         SetTracks();
         AddParticipant(driverAmount);
@@ -67,6 +67,7 @@ public static class DataController
         foreach(FileInfo file in Files )
         {
             Track track = JsonConvert.DeserializeObject<Track>(File.ReadAllText($@"../../../../Controller/Tracks/{file.Name}"));
+            track.laps = 2;
             AddTrack(track);
         }
     }
@@ -118,54 +119,6 @@ public static class DataController
         return sectionsTypes;
     }
     
-    private static SectionTypes[] simpleTrack()
-    {
-        SectionTypes[] result = new SectionTypes[15];
-        int index = 0;
-        for (int y = 0; y < 3; y++)
-        {
-            switch (y)
-            {
-                case 0:
-                    result[index] = SectionTypes.TopLeftCorner;
-                    index++;
-                    result[index] = SectionTypes.Straight;
-                    index++;
-                    result[index] = SectionTypes.Finish;
-                    index++;
-                    result[index] = SectionTypes.Straight;
-                    index++;
-                    result[index] = SectionTypes.TopRightCorner;
-                    index++;
-                    break;
-                case 1:
-                    result[index] = SectionTypes.Vertical;
-                    index++;
-                    result[index] = SectionTypes.Null;
-                    index++;
-                    result[index] = SectionTypes.Null;
-                    index++;
-                    result[index] = SectionTypes.Null;
-                    index++;
-                    result[index] = SectionTypes.Vertical;
-                    index++;
-                    break;
-                default:
-                    result[index] = SectionTypes.BottomLeftCorner;
-                    index++;
-                    result[index] = SectionTypes.Straight;
-                    index++;
-                    result[index] = SectionTypes.Straight;
-                    index++;
-                    result[index] = SectionTypes.Straight;
-                    index++;
-                    result[index] = SectionTypes.BottomRightCorner;
-                    index++;
-                    break;
-            }
-        }
-        return result;
-    }
     /*
      *  Description: Creates a new Section object
      *  Return Type: Section
