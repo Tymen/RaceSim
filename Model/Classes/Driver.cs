@@ -1,3 +1,5 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using Model.Enums;
 using Model.Interfaces;
 
@@ -15,6 +17,17 @@ public class Driver : IParticipant
     public Driver(Car car)
     {
         Equipment = car;
-        lap = 0;
+        lap = 1;
+    }
+    public void resetDriverForNextRace()
+    {
+        lap = 1;
+        _position = null;
+    }
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

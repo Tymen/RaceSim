@@ -10,16 +10,18 @@ namespace Controller;
 public class RaceController
 {
     public Track Track;
-    public List<Driver> Participants;
+    public readonly List<Driver> _participants;
+    public List<Driver> _finished;
+    private List<Driver> _brokenDrivers = new List<Driver>();
+    private Random _random = new Random(DateTime.Now.Millisecond);
     public DateTime StartTime;
     public event EventHandler<DriversChangedEventArgs> DriversChanged;
     public event EventHandler<IsFinishedEventArgs> IsFinished;
-
-    private int finishedCount = 0;
+    
     private Timer _timer;
-    private Random _random;
     private Dictionary<Section, SectionData> _position;
-    private int sectionLength = 100;
+    private const int SectionLength = 100;
+    private bool _raceFinished = false;
     
     /*
      *  Description: Constructor for initializing properties
@@ -27,8 +29,8 @@ public class RaceController
     public RaceController(Track track, List<Driver> participants)
     {
         Track = track;
-        Participants = participants;
-        _random = new Random(DateTime.Now.Millisecond);
+        _participants = participants;
+        _finished = new List<Driver>();
         _timer = new Timer(500);
         _timer.Elapsed += OnTimedEvent;
         SetParticipantsStartPosition();
@@ -36,10 +38,42 @@ public class RaceController
     
     private void OnTimedEvent(object? source, ElapsedEventArgs e)
     {
-        OnDriversChanged(new DriversChangedEventArgs() { track = Track, positions = _position });
-        UpdateDriversPosition();
+        if (_raceFinished)
+        {
+            return;
+        }
+        try
+        {
+            // Check each driver's equipment for breakage
+            foreach (var driver in _participants)
+            {
+                if (!_brokenDrivers.Contains(driver) && _random.NextDouble() < driver.Equipment.BreakdownChance)
+                {
+                    driver.Equipment.IsBroken = true;
+                    driver.Equipment.Speed = _random.Next(3, 20);
+                    _brokenDrivers.Add(driver);
+                }
+            }
+
+            // Attempt to fix each broken driver's equipment
+            foreach (var driver in _brokenDrivers.ToList())
+            {
+                if (_random.NextDouble() < driver.Equipment.FixChance)
+                {
+                    driver.Equipment.IsBroken = false;
+                    driver.Equipment.Speed -= _random.Next(1, 8); // Decrease speed as a penalty
+                    _brokenDrivers.Remove(driver);
+                }
+            }
+            OnDriversChanged(new DriversChangedEventArgs() { track = Track, positions = _position });
+            UpdateDriversPosition();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Exception in OnTimedEvent: " + ex);
+        }
     }
-    
+
     protected virtual void OnDriversChanged(DriversChangedEventArgs e)
     {
         DriversChanged.Invoke(this, e);
@@ -52,209 +86,296 @@ public class RaceController
     
     public void Start()
     {
-        _timer.Enabled = true;
+        _timer.Start();
     }
 
     private void isTrackEmpty()
     {
-        if (finishedCount >= Participants.Count)
+        if (_finished.Count >= _participants.Count)
         {
-            OnFinished(new IsFinishedEventArgs() {ParticipantsList = Participants});
-            //clearEventHandlers();
+            _raceFinished = true;
+            OnFinished(new IsFinishedEventArgs() {ParticipantsList = _finished});
         }
     }
 
-    private void clearEventHandlers()
+    public void Reset()
     {
-        DriversChanged = null;
-        IsFinished = null;
-    }
+        // Clearing track and lists
+        Track = null;
+
+        // Stopping the timer
+        _timer.Stop();
+        _timer.Elapsed -= OnTimedEvent;
+        _timer = null;
+
+        // Unsubscribing all event handlers
+        if(DriversChanged != null)
+            foreach (Delegate d in DriversChanged.GetInvocationList())
+                DriversChanged -= (EventHandler<DriversChangedEventArgs>)d;
     
-    // The Code is not working properly yet
+        if(IsFinished != null)
+            foreach (Delegate d in IsFinished.GetInvocationList())
+                IsFinished -= (EventHandler<IsFinishedEventArgs>)d;
+    }
+
     private void UpdateDriversPosition()
     {
-        Queue<SectionData> nextSection = new Queue<SectionData>();
-        for(LinkedListNode<Section> node = Track.Sections.First; node != null; node=node.Next){
-            SectionData sectionData = _position[node.Value];
-            SectionData newNextSection = null;
-            
-            Driver leftDriver = sectionData.Left;
-            int leftDistance = leftDriver == null ? sectionData.DistanceLeft : CalculateDistance(leftDriver, sectionData.DistanceLeft);
-            
-            Driver rightDriver = sectionData.Right;
-            int rightDistance = rightDriver == null ? sectionData.DistanceRight : CalculateDistance(rightDriver, sectionData.DistanceRight);
-            if (nextSection.Count > 0)
+        Queue<SectionData> nextSection = PrepareNextSectionQueue();
+
+        for (LinkedListNode<Section> node = Track.Sections.First; node != null; node = node.Next)
+        {
+            if (node?.Value != null)
             {
-                SectionData newSectionData = nextSection.Peek();
-                bool isFinish = node.Value.SectionType == SectionTypes.Finish;
-                if (leftDriver != null)
+                SectionData sectionData = _position[node.Value];
+
+                if (sectionData != null)
                 {
-                    nextSection.Dequeue();
-                }
-                
-                if (rightDriver != null)
-                {
-                    nextSection.Dequeue();
-                }
-                if (leftDriver == null && newSectionData.Left != null)
-                {
-                    leftDriver = newSectionData.Left;
-                    leftDistance = newSectionData.DistanceLeft;
-                    if (isFinish)
-                    {
-                        leftDriver.lap += 1;
-                        if (leftDriver.lap > Track.laps)
-                        {
-                            leftDriver = null;
-                            leftDistance = 0;
-                            finishedCount += 1;
-                            isTrackEmpty();
-                        }
-                    }
-                    newSectionData.Left = null;
-                    newSectionData.DistanceLeft = 0;
-                } else if (newSectionData.Left != null)
-                {
-                    newNextSection.DistanceLeft = CalculateDistance(newNextSection.Left, newNextSection.DistanceLeft);
-                    if (newNextSection.DistanceLeft > sectionLength)
-                    {
-                        node = node.Next;
-                        SectionData getNextSection = _position[node.Value];
-                        if (getNextSection.Left == null)
-                        {
-                            getNextSection.Left = newNextSection.Left;
-                            getNextSection.DistanceLeft = newNextSection.DistanceLeft;
-                        } else if (getNextSection.Right == null)
-                        {
-                            getNextSection.Right = newNextSection.Left;
-                            getNextSection.DistanceRight = newNextSection.DistanceLeft;
-                        }
-                        newSectionData.Right = null;
-                        newSectionData.DistanceRight = 0;
-                        node = node.Previous;
-                    }
-                }
-                
-                if (rightDriver == null && newSectionData.Right != null)
-                {
-                    rightDriver = newSectionData.Right;
-                    rightDistance = newSectionData.DistanceRight;
-                    if (isFinish)
-                    {
-                        rightDriver.lap += 1;
-                        if (rightDriver.lap > Track.laps)
-                        {
-                            rightDriver = null;
-                            rightDistance = 0;
-                            finishedCount += 1;
-                            isTrackEmpty();
-                        }
-                    }
-                    newSectionData.Right = null;
-                    newSectionData.DistanceRight = 0;
-                } else if (newSectionData.Right != null)
-                {
-                    newNextSection.DistanceRight = CalculateDistance(newNextSection.Right, newNextSection.DistanceRight);
-                    if (newNextSection.DistanceRight > sectionLength)
-                    {
-                        node = node.Next;
-                        SectionData getNextSection = _position[node.Value];
-                        if (getNextSection.Left == null)
-                        {
-                            getNextSection.Left = newNextSection.Right;
-                            getNextSection.DistanceLeft = newNextSection.DistanceRight;
-                        } else if (getNextSection.Right == null)
-                        {
-                            getNextSection.Right = newNextSection.Right;
-                            getNextSection.DistanceRight = newNextSection.DistanceRight;
-                        }
-                        newSectionData.Right = null;
-                        newSectionData.DistanceRight = 0;
-                        node = node.Previous;
-                    }
-                }
-            
-                if (newSectionData.Left == null && newSectionData.Right == null)
-                {
-                    nextSection.Dequeue();      
-                }
-            }
-            
-            if (leftDriver != null)
-            {
-                node = node.Next;
-                if (node.Next == null)
-                {
-                    SectionData connectSection = _position[Track.Sections.First.Value];
-                    connectSection.Left = leftDriver;
-                    connectSection.DistanceLeft = leftDistance - sectionLength;
+                    SectionData newNextSection = null;
+        
+                    var leftResult = HandleDriverOnSection(sectionData.Left, sectionData.DistanceLeft, sectionData, true);
+                    var rightResult = HandleDriverOnSection(sectionData.Right, sectionData.DistanceRight, sectionData, false);
+
+                    Driver leftDriver = leftResult.Item1;
+                    int leftDistance = leftResult.Item2;
+        
+                    Driver rightDriver = rightResult.Item1;
+                    int rightDistance = rightResult.Item2;
                     
-                    leftDriver = null;
-                    leftDistance = 0;
-                } else if (leftDistance > sectionLength)
-                {
-                    if (newNextSection == null)
-                    {
-                        newNextSection = new SectionData();
-                    }
-                    newNextSection.Left = leftDriver;
-                    newNextSection.DistanceLeft = leftDistance - sectionLength;
-            
-                    leftDriver = null;
-                    leftDistance = 0;
-                }
+                    newNextSection = HandleSectionDataQueue(nextSection, newNextSection, node);
 
-                node = node.Previous;
-                sectionData.DistanceLeft = leftDistance;
-                sectionData.Left = leftDriver;
-            }
-            if (rightDriver != null)
-            {
-                node = node.Next;
-                if (node.Next == null)
-                {
-                    SectionData connectSection = _position[Track.Sections.First.Value];
-                    connectSection.Right = rightDriver;
-                    connectSection.DistanceRight = rightDistance - sectionLength;
-                    rightDriver = null;
-                    rightDistance = 0;
-                } else if (rightDistance > sectionLength)
-                {
-                    if (newNextSection == null)
-                    {
-                        newNextSection = new SectionData();
-                    }
-                    newNextSection.Right = rightDriver;
-                    newNextSection.DistanceRight = rightDistance - sectionLength;
-            
-                    rightDriver = null;
-                    rightDistance = 0;
-                }
+                    UpdateDriverOnSection(leftDriver, leftDistance, sectionData, node.Value.SectionType, node, true);
+                    UpdateDriverOnSection(rightDriver, rightDistance, sectionData, node.Value.SectionType, node, false);
 
-                node = node.Previous;
-                
-                sectionData.DistanceRight = rightDistance;
-                sectionData.Right = rightDriver;
+                    if (newNextSection != null)
+                    {
+                        nextSection.Enqueue(newNextSection);
+                    }
+                } 
             }
-            
-            if (newNextSection != null)
+            else
             {
-                nextSection.Enqueue(newNextSection);
+                throw new Exception("Node is null");
             }
-        } 
+        }
     }
     
+    private Queue<SectionData> PrepareNextSectionQueue()
+    {
+        return new Queue<SectionData>();
+    }
+    
+    private Tuple<Driver, int> HandleDriverOnSection(Driver driver, int distance, SectionData sectionData, bool isLeftDriver)
+    {
+        Driver newDriver = driver;
+        int newDistance = distance;
+        if (driver != null)
+        {
+            if (!driver.Equipment.IsBroken)
+            {
+                if (driver != null)
+                {
+                    driver.Equipment.Speed = _random.Next(1, 10);
+                }
+                newDistance = driver == null ? distance : CalculateDistance(driver, distance);
+
+                if (newDriver != null)
+                {
+                    newDriver = isLeftDriver ? sectionData.Left : sectionData.Right;
+                    if (isLeftDriver)
+                    {
+                        sectionData.DistanceLeft = newDistance;
+                    }
+                    else
+                    {
+                        sectionData.DistanceRight = newDistance;
+                    }
+                }
+                else if (isLeftDriver ? sectionData.Left != null : sectionData.Right != null)
+                {
+                    newDistance = CalculateDistance(isLeftDriver ? sectionData.Left : sectionData.Right,
+                        isLeftDriver ? sectionData.DistanceLeft : sectionData.DistanceRight);
+                }    
+            }
+        }
+        
+        return Tuple.Create(newDriver, newDistance);
+    }
+    
+    /*
+     * Description: This function handles the logic for moving drivers from one section to the next
+     */
+    private Tuple<Driver, int> UpdateDriverOnSection(Driver driver, int distance, SectionData sectionData, SectionTypes sectionType, LinkedListNode<Section> node, bool isLeftDriver)
+    {
+        if (driver == null)
+        {
+            return Tuple.Create<Driver, int>(null, 0);
+        }
+
+        if (distance <= SectionLength)
+        {
+            UpdateCurrentSectionData(sectionData, driver, distance, isLeftDriver);
+            return Tuple.Create<Driver, int>(null, 0);
+        }
+
+        // Prepare for the next section
+        LinkedListNode<Section> nextNode;
+        if (node.Next == null) // This is the last section
+        {
+            nextNode = Track.Sections.First; // Wrap around to the first section
+        }
+        else if (node == Track.Sections.First.Previous) // This is the section before the first section
+        {
+            nextNode = Track.Sections.First; // Move to the first section
+        }
+        else
+        {
+            nextNode = node.Next;
+        }
+        SectionData nextSectionData = GetOrCreateSectionData(nextNode);
+
+
+        // Both spots are occupied, driver has to wait
+        if (nextSectionData.Left != null && nextSectionData.Right != null)
+        {
+            return Tuple.Create(driver, distance);
+        }
+
+        // Move the driver to the next section, prefer left spot if available
+        if (nextSectionData.Left == null)
+        {
+            if (nextNode.Value.SectionType == SectionTypes.Finish)
+            {
+                if (driver.lap > Track.laps)
+                {
+                    driver.resetDriverForNextRace();
+                    _finished.Add(driver);
+                    isTrackEmpty();
+                }
+                else
+                {
+                    nextSectionData.Left = driver;
+                    nextSectionData.DistanceLeft = distance - SectionLength;
+                    driver.lap++;
+                }
+
+            }
+            else
+            {
+                nextSectionData.Left = driver;
+                nextSectionData.DistanceLeft = distance - SectionLength;
+            }
+
+        }
+        else if (nextSectionData.Right == null)
+        {
+            if (nextNode.Value.SectionType == SectionTypes.Finish)
+            {
+                if (driver.lap > Track.laps)
+                {
+                    driver.resetDriverForNextRace();
+                    _finished.Add(driver);
+                    isTrackEmpty();
+                }
+                else
+                {
+                    nextSectionData.Right = driver;
+                    nextSectionData.DistanceLeft = distance - SectionLength;
+                    driver.lap++;
+                }
+
+            }
+            else
+            {
+                nextSectionData.Right = driver;
+                nextSectionData.DistanceLeft = distance - SectionLength;
+            }
+        }
+
+        // Clean up the current section data
+        ClearCurrentSectionData(sectionData, isLeftDriver);
+
+        return Tuple.Create(driver, distance - SectionLength);
+    }
+
+    /*
+     * description: This function is used to clear the data for a driver on the current section once the driver has moved to the next section
+     */
+    private void ClearCurrentSectionData(SectionData sectionData, bool isLeftDriver)
+    {
+        if (isLeftDriver)
+        {
+            sectionData.Left = null;
+            sectionData.DistanceLeft = 0;
+        }
+        else
+        {
+            sectionData.Right = null;
+            sectionData.DistanceRight = 0;
+        }
+    }
+    
+    /*
+     * Description: This function is used to update a driver's data on the current section
+     */
+    private void UpdateCurrentSectionData(SectionData sectionData, Driver driver, int distance, bool isLeftDriver)
+    {
+        if (isLeftDriver)
+        {
+            sectionData.Left = driver;
+            sectionData.DistanceLeft = distance;
+        }
+        else
+        {
+            sectionData.Right = driver;
+            sectionData.DistanceRight = distance;
+        }
+    }
+
+    /*
+     * Description:  This function returns the SectionData for a given section.
+     *               If the SectionData does not exist,
+     *               it creates a new SectionData object and adds it to the position map before returning it.
+     */
+    private SectionData GetOrCreateSectionData(LinkedListNode<Section> node)
+    {
+        if (!_position.TryGetValue(node.Value, out SectionData nextSectionData))
+        {
+            nextSectionData = new SectionData();
+            _position[node.Value] = nextSectionData;
+        }
+
+        return nextSectionData;
+    }
+
     private int CalculateDistance(Driver driver, int distance)
     {
         return distance + (driver.Equipment.Performance * driver.Equipment.Speed);
     }
+
+    private SectionData HandleSectionDataQueue(Queue<SectionData> nextSection, SectionData newNextSection, LinkedListNode<Section> node)
+    {
+        if (nextSection.Count > 0)
+        {
+            SectionData newSectionData = nextSection.Peek();
+            bool isFinish = node.Value.SectionType == SectionTypes.Finish;
+        
+            // This part needs to call HandleDriverOnSection() and UpdateDriverOnSection() 
+            // with the appropriate conditions as in your original method
+        
+            if (newSectionData.Left == null && newSectionData.Right == null)
+            {
+                nextSection.Dequeue();
+            }
+        }
     
+        return newNextSection;
+    }
+
     public void SetParticipantsStartPosition()
     {
-        SetParticipantsEquipment();
-        LinkedListNode<Section> lastSection;
         Queue<Section> startSections = new Queue<Section>();
         _position = new Dictionary<Section, SectionData>();
+        
         foreach (Section section in Track.Sections)
         {
             _position.Add(section, new SectionData());
@@ -263,8 +384,9 @@ public class RaceController
                 startSections.Enqueue(section);
             }
         }
+        
         startSections = new Queue<Section>(startSections.Reverse());
-        foreach (Driver participant in Participants)
+        foreach (Driver participant in _participants)
         {
             SectionData startSectionData = GetSectionData(startSections.Peek());
             if (startSectionData.Left == null)
@@ -288,35 +410,6 @@ public class RaceController
 
     /*
      *  Description:
-     *  Sets the equipment for every participant
-     */
-    public void SetParticipantsEquipment()
-    {
-        for (int i = 0; i < Participants.Count; i++)
-        {
-            Participants[i].Equipment = RandomizedEquipment();
-        }
-    }
-    
-    /*
-     *  Description:
-     *  Generates random car equipment for participants
-     *  Return Type: IEquipment
-     */
-    
-    public IEquipment RandomizedEquipment()
-    {
-        IEquipment equipment = new Car();
-        equipment.Performance = _random.Next(1, 7);
-        equipment.Quality = _random.Next(1, 20);
-        equipment.Speed = _random.Next(1, 8);
-        equipment.IsBroken = false;
-        
-        return equipment;
-    }
-    
-    /*
-     *  Description:
      *  Looks for corresponding SectionData based on the Section as Key
      *  Return Type: SectionData
      */
@@ -325,21 +418,6 @@ public class RaceController
         return GetPosition()[section];
     }
 
-    /*
-     *  Description:
-     *  When there is no paramter given it will add a new section to the position.
-     *  Return Type: SectionData
-     */
-    public SectionData GetSectionData()
-    {
-        SectionData sectionData = new SectionData();
-        Section section = new Section();
-        
-        GetPosition().Add(section, sectionData);
-
-        return sectionData;
-    }
-    
     /*
      *  Description: Gets the private Position property.
      *  Return Type: Dictionary<Sectiom, SectionData>

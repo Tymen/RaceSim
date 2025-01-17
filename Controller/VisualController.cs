@@ -10,14 +10,70 @@ namespace RaceSim;
 public static class VisualController
 {
     #region graphics
-    private static string[] _finishHorizontal = { "-----", "  *  ", "  *  ", "  *  ", "-----" };
-    private static string[] _startHorizontal = { "-----", " x#  ", "     ", " x#  ", "-----" };
-    private static string[] _vertical = { "|   |", "|   |", "|x i|", "|   |", "|   |" };
-    private static string[] _horizontal = { "-----", "  x  ", "     ", "  x  ", "-----" };
-    private static string[] _topLeftCorner = { "/----", "|x   ", "|    ", "|   x", "|   /" };
-    private static string[] _bottomLeftCorner = { @"|   \", "|   x", "|    ", "|x   " ,@"\----" };
-    private static string[] _topRightCorner = { @"----\", "   x|", "    |", "x   |", @"\   |" };
-    private static string[] _bottomRightCorner = { "/   |", "x   |", "    |", "   x|", "----/" };
+    private static string[] _finishHorizontal =
+    {
+        "-----", 
+        " x*  ", 
+        "  *  ", 
+        " y*  ", 
+        "-----"
+    };
+    private static string[] _startHorizontal =
+    {
+        "-----", 
+        " x#  ", 
+        "     ", 
+        " y#  ", 
+        "-----"
+    };
+    private static string[] _vertical =
+    {
+        "|   |", 
+        "|   |", 
+        "|x y|", 
+        "|   |", 
+        "|   |"
+    };
+    private static string[] _horizontal =
+    {
+        "-----", 
+        "  x  ", 
+        "     ", 
+        "  y  ", 
+        "-----"
+    };
+    private static string[] _topLeftCorner =
+    {
+        "/----", 
+        "|y   ", 
+        "|    ", 
+        "|   x", 
+        "|   /"
+    };
+    private static string[] _bottomLeftCorner =
+    {
+        @"|   \", 
+         "|   x", 
+         "|    ", 
+         "|y   ",
+        @"\----"
+    };
+    private static string[] _topRightCorner =
+    {
+        @"----\", 
+         "  y |", 
+         "    |", 
+         "x   |", 
+        @"\   |"
+    };
+    private static string[] _bottomRightCorner =
+    {
+        "/   |", 
+        "x   |", 
+        "    |", 
+        "   y|", 
+        "----/"
+    };
     private static string[] _blank = { "     ", "     ", "     ", "     ", "     " };
     #endregion
 
@@ -29,14 +85,20 @@ public static class VisualController
 
     public static void main(RaceController raceController)
     {
+        Console.Clear();
         raceController.DriversChanged += onDriversChanged;
+        raceController.IsFinished += onIsFinished;
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
     }
     
-    static void onDriversChanged(object sender, DriversChangedEventArgs e)
+    private static void onDriversChanged(object sender, DriversChangedEventArgs e)
     {
         DrawTrack(e.positions);
     }
-    
+    private static void onIsFinished(object sender, IsFinishedEventArgs e)
+    {
+        Console.Clear();
+    } 
     /*
      *  Description:
      *  Loop through every section of the track to visualize it correctly in the console
@@ -82,11 +144,14 @@ public static class VisualController
 
     public static void DrawTrack(Dictionary<Section, SectionData> sectionDataDictionary)
     {
-        foreach(var item in sectionDataDictionary)
-        {
-            Section section = item.Key;
-            SectionData sectionData = item.Value;
+        var keys = new List<Section>(sectionDataDictionary.Keys);
 
+        for(int i = 0; i < keys.Count; i++)
+        {
+            Section section = keys[i];
+            SectionData sectionData = sectionDataDictionary[section];
+            Section? lastSection = i > 0 ? keys[i - 1] : null;
+            
             switch(section.SectionType)
             {
                 case SectionTypes.Finish:
@@ -119,53 +184,47 @@ public static class VisualController
             }
         }
     }
-
+    
     private static string[] GetVisualSection(SectionData sectionData, string[] visualSection)
     {
-        bool left = false;
         string[] visualData = new string[visualSection.Length];
         for (int i = 0; i < visualSection.Length; i++)
         {
             string getSection = visualSection[i];
-            if (getSection.Contains("x") || getSection.Contains("i"))
+
+            Driver driver;
+            // if there's more than one driver, assign according to Left and Right
+            if (sectionData.Left != null && sectionData.Right != null)
             {
-                int XCount = getSection.Count(x => x == 'x');
-                if (sectionData.Left != null && XCount > 1)
-                {
-                    getSection = getSection.Replace("x", sectionData.Left.Name[0].ToString());
-                    XCount = getSection.Count(x => x == 'x');
-                }
+                getSection = getSection.Replace("x", sectionData.Left.Equipment.IsBroken ? "@" : sectionData.Left.Name[0].ToString());
+                getSection = getSection.Replace("y", sectionData.Right.Equipment.IsBroken ? "@" : sectionData.Right.Name[0].ToString());
+            }
+            else
+            {
+                // otherwise, use the single driver (if any)
+                driver = sectionData.Left ?? sectionData.Right;
+                if (driver != null) {
+                    string driverSymbol = driver.Equipment.IsBroken ? "@" : driver.Name[0].ToString();
 
-                if (sectionData.Left != null && !left && XCount == 1)
-                {
-                    getSection = getSection.Replace("x", sectionData.Left.Name[0].ToString());
-                    XCount = getSection.Count(x => x == 'x');
-                    left = true;
+                    if (sectionData.Left != null) {
+                        getSection = getSection.Replace("x", driverSymbol);
+                        getSection = getSection.Replace("y", " ");
+                    }
+                    else if (sectionData.Right != null) {
+                        getSection = getSection.Replace("y", driverSymbol);
+                        getSection = getSection.Replace("x", " ");
+                    }
                 }
-
-                if (sectionData.Right != null)
+                else
                 {
-                    if (getSection.Contains("i"))
-                    {
-                        getSection = getSection.Replace("i", sectionData.Right.Name[0].ToString());
-                    }
-                    if (left && XCount == 1)
-                    {
-                        getSection = getSection.Replace("x", sectionData.Right.Name[0].ToString());
-                    }
+                    getSection = getSection.Replace("x", " ");
+                    getSection = getSection.Replace("y", " ");
                 }
             }
-            if (sectionData.Left == null && sectionData.Right == null)
-            {
-                getSection = getSection.Replace("x", " ");
-                if (getSection.Contains("i"))
-                {
-                    getSection = getSection.Replace("i", " ");
-                }
-            }    
+
             visualData[i] = getSection;
         }
-        
+
         return visualData;
     }
 
@@ -198,7 +257,7 @@ public static class VisualController
 
         for (int i = 0; i < sectionArray.Length; i++)
         {
-            Console.SetCursorPosition(x, y + i);
+            Console.SetCursorPosition(x + 5, y + i + 5);
             Console.WriteLine(sectionArray[i]);
         }
     }

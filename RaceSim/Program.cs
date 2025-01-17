@@ -63,6 +63,14 @@ void StartTrackBuilder()
 void StartSim()
 {
     DataController.Initialize(4);
-    VisualController.main(DataController.CurrentRace);
-    DataController.CurrentRace.Start();
+    Thread thread = new Thread(new ThreadStart(() =>
+    {
+        // Replace 'WPF' with the namespace of your WPF application
+        WPF.MainWindow app = new WPF.MainWindow(DataController.CurrentRace);
+        app.InitializeComponent();
+        app.ShowDialog(); // This will show your window
+    }));
+
+    thread.SetApartmentState(ApartmentState.STA);
+    thread.Start();
 }
